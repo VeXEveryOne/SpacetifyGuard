@@ -74,4 +74,4 @@ if (-not $NoAutoRepair) {
     if ($taskEnable.ExitCode -ne 0) { throw "Could not enable background repair ($($taskEnable.ExitCode))." }
 }
 Write-InstallLog "Installed Guard Studio in $taskInstallDir. Custom themes and logs are preserved in $taskDataDir."
-if (-not $NoLaunch) { Start-Process -FilePath $taskInstalledExe -WindowStyle Hidden }
+if (-not $NoLaunch) { Start-Process -FilePath $taskInstalledExe }

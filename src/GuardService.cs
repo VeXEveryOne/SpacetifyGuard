@@ -206,6 +206,8 @@ namespace SpicetifyGuard
             using (Mutex mutex = new Mutex(false, "Local\\SpicetifyGuardRepair"))
             {
                 bool owns = false;
+                string rollback = null, folder = null, configPath = null;
+                bool changed = false, committed = false;
                 try
                 {
                     owns = mutex.WaitOne(TimeSpan.FromSeconds(2));
@@ -213,29 +215,38 @@ namespace SpicetifyGuard
                     GuardStatus status = Inspect();
                     if (!status.IsReady) return new RepairResult { Success = false, Output = status.Summary };
                     string prefix = SpicetifyPrefix();
-                    string folder = Path.Combine(Path.GetDirectoryName(status.ConfigPath), "Themes", "GuardStudio");
-                    string rollback = Path.Combine(DataDirectory, "backups", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N"));
+                    configPath = status.ConfigPath;
+                    folder = Path.Combine(Path.GetDirectoryName(status.ConfigPath), "Themes", "GuardStudio");
+                    rollback = Path.Combine(DataDirectory, "backups", DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N"));
                     Directory.CreateDirectory(rollback);
                     File.Copy(status.ConfigPath, Path.Combine(rollback, "config-xpui.ini"));
                     if (Directory.Exists(folder))
                         foreach (string file in Directory.GetFiles(folder)) File.Copy(file, Path.Combine(rollback, Path.GetFileName(file)));
+                    changed = true;
                     ThemeStore.Render(theme, folder, Path.Combine(Path.GetDirectoryName(status.SpotifyPath), "Apps", "xpui"));
                     RepairResult config = RunProcess(status.SpicetifyPath, prefix + "config current_theme GuardStudio color_scheme studio inject_css 1 replace_colors 1 inject_theme_js 0", 30000);
                     if (!config.Success) return config;
                     Log("Применение темы " + theme.Name + ". Резервная копия настроек: " + rollback);
                     RepairResult applied = Repair(false, false, theme);
-                    if (applied.Success) ThemeStore.Export(theme, ThemeStore.ActiveFile);
-                    else
-                    {
-                        File.Copy(Path.Combine(rollback, "config-xpui.ini"), status.ConfigPath, true);
-                        foreach (string file in Directory.GetFiles(rollback))
-                            if (Path.GetFileName(file) != "config-xpui.ini") File.Copy(file, Path.Combine(folder, Path.GetFileName(file)), true);
-                        Log("Применение не завершено. Предыдущие настройки темы восстановлены.");
-                    }
+                    if (applied.Success) { ThemeStore.Export(theme, ThemeStore.ActiveFile); committed = true; }
                     return applied;
                 }
                 catch (Exception ex) { return new RepairResult { Success = false, Output = ex.Message }; }
-                finally { if (owns) mutex.ReleaseMutex(); }
+                finally
+                {
+                    if (changed && !committed)
+                    {
+                        try
+                        {
+                            File.Copy(Path.Combine(rollback, "config-xpui.ini"), configPath, true);
+                            foreach (string file in Directory.GetFiles(rollback))
+                                if (Path.GetFileName(file) != "config-xpui.ini") File.Copy(file, Path.Combine(folder, Path.GetFileName(file)), true);
+                            Log("Применение не завершено. Предыдущие настройки темы восстановлены.");
+                        }
+                        catch (Exception ex) { Log("Не удалось вернуть настройки из " + rollback + ": " + ex.Message); }
+                    }
+                    if (owns) mutex.ReleaseMutex();
+                }
             }
         }
 
@@ -256,6 +267,8 @@ namespace SpicetifyGuard
             using (Mutex mutex = new Mutex(false, "Local\\SpicetifyGuardRepair"))
             {
                 bool owns = false;
+                bool wasRunning = false;
+                string restartPath = null;
                 try
                 {
                     owns = mutex.WaitOne(TimeSpan.FromSeconds(2));
@@ -287,7 +300,8 @@ namespace SpicetifyGuard
                         }
                     }
 
-                    bool wasRunning = StopSpotify();
+                    restartPath = status.SpotifyPath;
+                    wasRunning = StopSpotify();
 
                     // Keep the patcher compatible with newer Spotify builds. A failed
                     // update is non-fatal: the installed version may still support the
@@ -301,27 +315,14 @@ namespace SpicetifyGuard
                         Log("Не удалось обновить Spicetify, продолжаю установленной версией. " + LimitText(update.Output, 1000));
                     }
 
-                    // `backup apply` refuses to overwrite an existing backup. Restore
-                    // the clean app first, then create a fresh backup for the current
-                    // Spotify build. This also makes forced repairs idempotent.
-                    if (updateCli)
-                    {
-                    if (!string.IsNullOrWhiteSpace(status.BackupVersion) && VersionCore(status.BackupVersion) == VersionCore(status.SpotifyVersion))
-                    {
-                        RepairResult restore = RunProcess(status.SpicetifyPath, spicetifyPrefix + "restore backup", 240000);
-                        if (!restore.Success)
-                        {
-                            Log("Не удалось восстановить резервную копию. " + LimitText(restore.Output, 3000));
-                            if (wasRunning)
-                                StartSpotify(status.SpotifyPath);
-                            return restore;
-                        }
-                        Log("Чистые файлы Spotify восстановлены из резервной копии.");
-                    }
-                    }
-
-                    string applyCommand = !updateCli && status.PatchPresent && VersionCore(status.BackupVersion) == VersionCore(status.SpotifyVersion)
-                        ? "apply --no-restart" : "backup apply --no-restart";
+                    // Reapplying an unchanged build must not rebuild its backup on
+                    // every repair. Re-preprocess only after a CLI upgrade or a
+                    // Spotify update. The fallback below handles an existing
+                    // patched install whose cached preprocessing is incomplete.
+                    Dictionary<string, string> updatedConfig = ReadIni(status.ConfigPath);
+                    string cliVersion = RunProcess(status.SpicetifyPath, "--version", 15000).Output.Trim();
+                    bool preprocessingCurrent = string.Equals(GetValue(updatedConfig, "Backup.with"), cliVersion, StringComparison.Ordinal);
+                    string applyCommand = ChooseApplyCommand(status.BackupVersion, status.SpotifyVersion, preprocessingCurrent);
                     RepairResult command = RunProcess(status.SpicetifyPath, spicetifyPrefix + applyCommand, 240000);
 
                     // Retry the documented clean-restore flow only for a matching
@@ -347,15 +348,11 @@ namespace SpicetifyGuard
                         }
                         GuardStatus after = Inspect();
                         if (after.NeedsRepair) command = new RepairResult { Success = false, Output = "Команда завершилась, но проверка файлов не прошла: " + after.Summary };
-                        Log("Spicetify успешно применил патч.");
-                        if (wasRunning)
-                            StartSpotify(status.SpotifyPath);
+                        Log(command.Success ? "Патч и настройки темы проверены в файлах Spotify." : "Проверка после применения не прошла. " + command.Output);
                     }
                     else
                     {
                         Log("Spicetify завершился с ошибкой. " + LimitText(command.Output, 3000));
-                        if (wasRunning)
-                            StartSpotify(status.SpotifyPath);
                     }
 
                     return command;
@@ -367,10 +364,17 @@ namespace SpicetifyGuard
                 }
                 finally
                 {
+                    if (wasRunning) StartSpotify(restartPath);
                     if (owns)
                         mutex.ReleaseMutex();
                 }
             }
+        }
+
+        internal static string ChooseApplyCommand(string backupVersion, string spotifyVersion, bool preprocessingCurrent)
+        {
+            bool sameBuild = !string.IsNullOrWhiteSpace(backupVersion) && VersionCore(backupVersion) == VersionCore(spotifyVersion);
+            return sameBuild && preprocessingCurrent ? "apply --no-restart" : "backup apply --no-restart";
         }
 
         public static bool IsAutoRepairEnabled()

@@ -46,10 +46,15 @@ namespace SpicetifyGuard
                 Check(custom.Contains("height: 44px") && custom.EndsWith(draft.CustomCss + "\n"), "Custom CSS and compact mode must render.");
                 string modules = Path.Combine(folder, "modules"); Directory.CreateDirectory(modules);
                 File.WriteAllText(Path.Combine(modules, "dwp-home-header.css"), ".newHash123{background-image:linear-gradient(#0009,#fff);height:256px;position:absolute}");
-                File.WriteAllText(Path.Combine(modules, "dwp-home-chips-row.css"), ".newCarousel .content{--carousel-end-chevron-gradient:#121212b3;}");
+                File.WriteAllText(Path.Combine(modules, "dwp-home-chips-row.css"), ".newCarousel .content{--carousel-end-chevron-gradient:#121212b3;} .header.newBanner{height:40vh;max-height:none}");
                 string compatibility = ThemeStore.CompatibilityCss(modules);
                 Check(compatibility.Contains(".newHash123 { display: none !important;"), "Detect newly hashed home gradients.");
                 Check(compatibility.Contains(".newCarousel .content { --carousel-start-chevron-gradient: var(--spice-main)"), "Override dark carousel fades using the actual build's selector.");
+                Check(compatibility.Contains(".header.newBanner .contentSpacing * { color: #fff !important"), "Keep full-bleed header text readable after class hashes change.");
+                Check(ThemeStore.RenderCss(themes[0], "").Contains("[data-shelf=\"carousel\"]"), "Carousel fades must follow the palette across route chunks.");
+                Check(GuardService.ChooseApplyCommand("1.3.3.264.gtest", "1.3.3.264", true) == "apply --no-restart", "Same-build repair must reuse the prepared backup.");
+                Check(GuardService.ChooseApplyCommand("1.3.3.264.gtest", "1.3.4.1", true) == "backup apply --no-restart", "A new Spotify build must create its own backup.");
+                Check(GuardService.ChooseApplyCommand("1.3.3.264.gtest", "1.3.3.264", false) == "backup apply --no-restart", "A CLI upgrade must refresh preprocessing.");
 
                 string config = Path.Combine(folder, "config-xpui.ini"), cli = Path.Combine(folder, "spicetify.exe"), spotify = Path.Combine(folder, "Spotify");
                 Directory.CreateDirectory(spotify); File.WriteAllText(cli, "fake"); File.WriteAllText(Path.Combine(spotify, "Spotify.exe"), "fake");

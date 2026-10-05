@@ -38,8 +38,10 @@ namespace SpicetifyGuard
             Content = Build();
             Loaded += delegate
             {
-                ReloadThemes("neutral-light");
-                try { if (File.Exists(ThemeStore.ActiveFile)) LoadDraft(ThemeStore.Load(ThemeStore.ActiveFile)); } catch { }
+                ThemeDefinition active = null;
+                try { if (File.Exists(ThemeStore.ActiveFile)) active = ThemeStore.Load(ThemeStore.ActiveFile); } catch { }
+                ReloadThemes(active == null ? "neutral-light" : active.Id);
+                if (active != null) LoadDraft(active);
                 RefreshStatus();
             };
         }

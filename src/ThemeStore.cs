@@ -105,6 +105,7 @@ namespace SpicetifyGuard
             css.Append(".view-homeShortcutsGrid-shortcut { background: var(--spice-card) !important; }\n.view-homeShortcutsGrid-shortcut:hover { background: var(--spice-button-disabled) !important; }\n");
             // The original light Ziro theme hard-coded pale shortcut cards.
             css.Append("[data-testid=\"home-page\"] [data-testid=\"shortcut\"] { background: var(--spice-card) !important; }\n");
+            css.Append("[data-shelf=\"carousel\"] { --carousel-start-chevron-gradient: var(--spice-main) !important; --carousel-end-chevron-gradient: var(--spice-main) !important; }\n");
             css.Append(".main-entityHeader-container.main-entityHeader-withBackgroundImage .main-entityHeader-contentWrapper, .main-entityHeader-container.main-entityHeader-withBackgroundImage .main-entityHeader-contentWrapper * { color: #fff !important; --text-base: #fff !important; --text-subdued: #ddd !important; }\n");
             css.Append("[data-encore-id=\"logoSpotify\"], .premiumSpotifyIcon { display: ").Append(theme.HideBranding ? "none" : "revert").Append(" !important; }\n");
             if (theme.Compact) css.Append(".main-trackList-trackListRow { min-height: 44px !important; height: 44px !important; }\n");
@@ -132,6 +133,14 @@ namespace SpicetifyGuard
                         css.Append(selector).Append(" { --carousel-start-chevron-gradient: var(--spice-main) !important; --carousel-end-chevron-gradient: var(--spice-main) !important; }\n");
                     if (module == "dwp-home-chips-row.css" && properties.Contains("background-color:#0009"))
                         css.Append(selector).Append(" { background: var(--spice-main) !important; }\n");
+                    // Modern full-bleed headers no longer have the translated
+                    // main-entityHeader-withBackgroundImage class. Their banner
+                    // variant is identified from the current build's own rule.
+                    if (module == "dwp-home-chips-row.css" && properties.Contains("height:40vh") && properties.Contains("max-height:none"))
+                    {
+                        css.Append(selector).Append(" .contentSpacing, ").Append(selector).Append(" .contentSpacing * { color: #fff !important; --text-base: #fff !important; --text-subdued: #ddd !important; }\n");
+                        css.Append(selector).Append(" [data-testid=\"entityTitle\"] { text-shadow: 0 1px 6px rgba(0,0,0,.5); }\n");
+                    }
                     if (module == "dwp-panel-section.css" && (selector.Contains(":before") || selector.Contains(":after")) && properties.Contains("background:linear-gradient(#121212"))
                         css.Append(selector).Append(" { background: none !important; }\n");
                 }
