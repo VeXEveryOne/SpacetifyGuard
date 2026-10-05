@@ -1,0 +1,8 @@
+{
+  "FormatVersion": 1, "Id": "graphite", "Name": "Graphite Dark",
+  "Description": "Спокойная тёмная тема с графитовыми панелями и зелёным акцентом.",
+  "Radius": 10, "Compact": false, "HideBranding": true, "CustomCss": "",
+  "Colors": {
+    "text": "F4F5F7", "subtext": "A9ABB4", "main": "15161A", "sidebar": "15161A", "player": "15161A", "card": "24262D", "shadow": "15161A", "selected-row": "65D6A2", "button": "65D6A2", "button-active": "94E7BF", "button-disabled": "363941", "tab-active": "65D6A2", "notification": "24262D", "notification-error": "FF7B86", "misc": "15161A"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "FormatVersion": 1, "Id": "midnight", "Name": "Midnight Blue",
+  "Description": "Глубокий синий фон, холодные карточки и лавандовый акцент.",
+  "Radius": 14, "Compact": false, "HideBranding": true, "CustomCss": "",
+  "Colors": {
+    "text": "E7ECFF", "subtext": "A0ABCA", "main": "101627", "sidebar": "101627", "player": "101627", "card": "1C2640", "shadow": "101627", "selected-row": "B5A4FF", "button": "B5A4FF", "button-active": "D1C5FF", "button-disabled": "34405A", "tab-active": "B5A4FF", "notification": "1C2640", "notification-error": "FF9C9C", "misc": "101627"
+  }
+}

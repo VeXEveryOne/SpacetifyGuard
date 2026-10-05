@@ -1,0 +1,5 @@
+dist/
+*.user
+*.tmp
+.vs/
+artifacts/

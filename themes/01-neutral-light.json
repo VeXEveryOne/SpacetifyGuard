@@ -1,0 +1,10 @@
+{
+  "FormatVersion": 1,
+  "Id": "neutral-light",
+  "Name": "Neutral Light",
+  "Description": "Ваша светлая тема ZiroNeutral: белые панели, графитовый текст и мягкие углы.",
+  "Radius": 10, "Compact": false, "HideBranding": true, "CustomCss": "",
+  "Colors": {
+    "text": "111111", "subtext": "666666", "main": "F3F3F3", "sidebar": "F3F3F3", "player": "F3F3F3", "card": "FFFFFF", "shadow": "FFFFFF", "selected-row": "111111", "button": "111111", "button-active": "333333", "button-disabled": "C8C8C8", "tab-active": "111111", "notification": "FFFFFF", "notification-error": "444444", "misc": "F3F3F3"
+  }
+}
